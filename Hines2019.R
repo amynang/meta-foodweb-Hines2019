@@ -1,14 +1,22 @@
 library(tidyverse)
 library(rglobi)
+library(igraph)
+library(Matrix)
 
+#Grabing the data from 10.1002/ecy.2679
 temp1 = tempfile()
 download.file("https://esajournals.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1002%2Fecy.2679&file=ecy2679-sup-0001-Supinfo.zip",temp1)
 traits = read.csv(unzip(unzip(temp1)[1])[1])
 m.f.web = read.csv(unzip(unzip(temp1)[1])[2])
+unlink(temp1)
 
-taxa = data$genus.species
-taxa = taxa %>% str_replace("_", " ")
-taxa = taxa[10:714] 
+#Get the taxa contained in the original dataset
+taxa = traits$genus.species
+taxa = taxa %>% str_replace("_", " ") #so that rglobi can query the database
+taxa = taxa[10:714] #remove non taxonomic elements (eg detritus, carrion)
+
+
+#https://github.com/ropensci/rglobi/issues/41#issue-1032296595
 
 mat.1 = get_interaction_matrix(taxa[1:177], 
                                taxa[1:177],"eats")
@@ -51,14 +59,20 @@ mat.list = list(mat.1, mat.2, mat.3, mat.4, mat.5,
                 mat.6, mat.7, mat.8, mat.9, mat.10,
                 mat.11,mat.12,mat.13,mat.14,mat.15,
                 mat.16)
-
-for (i in 1:16) {
+for (i in 1:16) { #turning get_interaction_matrix() output into proper adjacency matrices
   rownames(mat.list[[i]]) = mat.list[[i]][,1]
   mat.list[[i]] = as.matrix(mat.list[[i]][,-1])
   #colnames(mat.list[[i]]) = rownames(mat.list[[i]])
 }
 
+#bring everything together
 f.mat = rbind(cbind(mat.list[[1]],mat.list[[5]],mat.list[[6]],mat.list[[7]]),
               cbind(mat.list[[2]],mat.list[[8]],mat.list[[9]],mat.list[[10]]),
               cbind(mat.list[[3]],mat.list[[11]],mat.list[[12]],mat.list[[13]]),
               cbind(mat.list[[4]],mat.list[[14]],mat.list[[15]],mat.list[[16]]))
+
+#turn it into a sparse matrix
+f.mat.sparse = as(f.mat, "sparseMatrix")
+save(f.mat.sparse, file="f.mat.sparse.Rdata")
+
+load("f.mat.sparse.Rdata")
